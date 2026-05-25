@@ -36,7 +36,7 @@ const CHOICES = [
     image:
       'https://i.postimg.cc/qB5Rprzk/Gemini-Generated-Image-s7czx9s7czx9s7cz.png',
     video:
-      'https://player.vdocipher.com/v2/?otp=20160313versASE3232KGuNVgdgNLykFjcK3FrPkqHC89IFXYSsNH8p09fNPBKYp&playbackInfo=eyJ2aWRlb0lkIjoiNWU4NWQ3M2EyNmRmNDIyNWFlZTdhMmU1MzhmOGRlN2QifQ==',
+      'https://drive.google.com/file/d/1wZgTttqHH-8eeEK3nkAcxQDHU5wtLhOl/view?usp=sharing',
     primary: '#E8315B',
     light: '#FFF0F3',
     dark: '#A0122E',
@@ -48,7 +48,7 @@ const CHOICES = [
     image:
       'https://i.postimg.cc/JhrDGqmJ/Chat-GPT-Image-22-ph-kh-2569-16-11-35.png',
     video:
-      'https://player.vdocipher.com/v2/?otp=20160313versASE3232mOKt1BFFbW5UeXdK5sc1slavxEpbg3iR9zBfCukHY8nKv&playbackInfo=eyJ2aWRlb0lkIjoiZTM1YzFmMDYzOTc3NGVmMmE1NTkwNGI4ZDUyODNlOGMifQ==',
+      'https://drive.google.com/file/d/1B57yzVeNdudXJc4RfnVxuG2oGy8ay7T_/view?usp=sharing',
     primary: '#2563EB',
     light: '#EFF6FF',
     dark: '#1E40AF',
