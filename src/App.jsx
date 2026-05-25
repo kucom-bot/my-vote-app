@@ -177,32 +177,38 @@ function VotePage({ onVote, submitting }) {
   );
 }
 
-// ✅ 1. เอาฟังก์ชัน VideoPlayer มาแทรกตรงนี้ได้เลยครับ!
+// ── ตัวเล่นวิดีโออัจฉริยะ (อัปเดตแก้จอแบนบนมือถือ) ──
 function VideoPlayer({ url }) {
   if (!url) return null;
 
+  // สไตล์สำหรับกรอบวิดีโอให้ได้สัดส่วน 16:9 บนทุกหน้าจอ
+  const responsiveWrapper = {
+    position: 'relative',
+    paddingTop: '56.25%', // บังคับสัดส่วน 16:9 (ไม่ให้จอแบน)
+    width: '100%',
+    marginBottom: '20px',
+    borderRadius: '12px',
+    overflow: 'hidden', // ทำให้ขอบวิดีโอโค้งมนสวยงาม
+    background: '#000',
+    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+  };
+
+  const responsiveIframe = {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    border: 0,
+  };
+
+  // 1. กรณีเป็นลิงก์วิดีโอจาก VdoCipher
   if (url.includes('vdocipher.com')) {
     return (
-      <div
-        style={{
-          paddingTop: '56.25%',
-          position: 'relative',
-          width: '100%',
-          marginBottom: 20,
-        }}
-      >
+      <div style={responsiveWrapper}>
         <iframe
           src={url}
-          style={{
-            border: 0,
-            maxWidth: '100%',
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            height: '100%',
-            width: '100%',
-            borderRadius: 12,
-          }}
+          style={responsiveIframe}
           allowFullScreen={true}
           allow="encrypted-media"
         />
@@ -210,6 +216,7 @@ function VideoPlayer({ url }) {
     );
   }
 
+  // 2. กรณีเป็นลิงก์ YouTube
   if (url.includes('youtube.com') || url.includes('youtu.be')) {
     let videoId = '';
     if (url.includes('youtu.be/')) {
@@ -218,33 +225,49 @@ function VideoPlayer({ url }) {
       videoId = url.split('v=')[1]?.split(/[&#]/)[0];
     }
     return (
-      <iframe
-        src={`https://www.youtube.com/embed/${videoId}`}
-        style={S.video}
-        frameBorder="0"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-        allowFullScreen
-      />
+      <div style={responsiveWrapper}>
+        <iframe
+          src={`https://www.youtube.com/embed/${videoId}`}
+          style={responsiveIframe}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+        />
+      </div>
     );
   }
 
+  // 3. กรณีเป็นลิงก์ Google Drive (แก้ให้เต็มจอพอดีที่นี่ครับ)
   if (url.includes('drive.google.com')) {
     let fileId = '';
     if (url.includes('/d/')) {
       fileId = url.split('/d/')[1]?.split('/')[0];
     }
     return (
-      <iframe
-        src={`https://drive.google.com/file/d/${fileId}/preview`}
-        style={S.video}
-        frameBorder="0"
-        allow="autoplay"
-        allowFullScreen
-      />
+      <div style={responsiveWrapper}>
+        <iframe
+          src={`https://drive.google.com/file/d/${fileId}/preview`}
+          style={responsiveIframe}
+          allow="autoplay"
+          allowFullScreen
+        />
+      </div>
     );
   }
 
-  return <video src={url} controls style={S.video} preload="metadata" />;
+  // 4. กรณีเป็นไฟล์วิดีโอตรงปกติ (.mp4)
+  return (
+    <video
+      src={url}
+      controls
+      style={{
+        width: '100%',
+        borderRadius: '12px',
+        marginBottom: '20px',
+        background: '#000',
+      }}
+      preload="metadata"
+    />
+  );
 }
 
 // ✅ 2. และนี่คือ ChoiceCard ตัวที่ปรับปรุงแล้ว (เอามาวางต่อท้าย VideoPlayer ได้เลย)
