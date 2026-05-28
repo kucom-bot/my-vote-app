@@ -14,6 +14,7 @@ import {
 // ══════════════════════════════════════════════
 const RESULTS_SECRET = 'results-2569'; // ตัวเลขท้ายลิ้งค์สำหรับดูผล เช่น .vercel.app/#results-2569
 const VOTE_HEADING = 'กีฬาสีปีนี้...คุณเลือกอะไร?'; // หัวข้อโหวต
+const DEADLINE_TIME = new Date('2026-05-29T18:00:00+07:00').getTime();
 
 // นำข้อความคัดลอกจาก Firebase Console มาวางแทนที่ตรงนี้ (ดูวิธีทำด้านล่าง)
 const firebaseConfig = {
@@ -32,7 +33,7 @@ const CHOICES = [
   {
     id: 'A',
     label: 'มนต์รักไทบ้าน',
-    desc: 'ย้อนยุค ผู้ใหญ่ลี (พ.ศ.2504) และทองกวาวมนต์รักลูกทุ่ง (พ.ศ.2570) ผสมผสานสไตล์ไทบ้านอีสานมักม่วน',
+    desc: 'ย้อนยุค ผู้ใหญ่ลี (พ.ศ.2504) และทองกวาวมนต์รักลูกทุ่ง (พ.ศ.2513) ผสมผสานสไตล์ไทบ้านอีสานมักม่วน',
     image:
       'https://i.postimg.cc/qB5Rprzk/Gemini-Generated-Image-s7czx9s7czx9s7cz.png',
     video:
@@ -66,16 +67,17 @@ export default function VoteApp() {
   const [counts, setCounts] = useState({ A: 0, B: 0 });
   const [votedFor, setVotedFor] = useState(null);
   const [submitting, setSubmitting] = useState(null);
+  const [timeLeft, setTimeLeft] = useState(''); // เก็บเวลาที่เหลืออยู่นับถอยหลัง
 
   useEffect(() => {
-    // เช็คว่าเคยโหวตไปหรือยังจากเครื่องนี้
     const localVote = localStorage.getItem(LOCAL_VOTE_KEY);
 
-    // จัดการเส้นทางหน้าเว็บจาก Hash (#)
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '');
       if (hash === RESULTS_SECRET) {
         setPage('results');
+      } else if (new Date().getTime() >= DEADLINE_TIME) {
+        setPage('expired'); // สั่งเข้าหน้าปิดโหวตทันทีถ้าหมดเวลา
       } else if (localVote) {
         setVotedFor(localVote);
         setPage('thanks');
@@ -83,6 +85,34 @@ export default function VoteApp() {
         setPage('vote');
       }
     };
+
+    // ระบบจับเวลาและนับถอยหลัง (อัปเดตทุก 1 วินาที)
+    const timerInterval = setInterval(() => {
+      const now = new Date().getTime();
+      const difference = DEADLINE_TIME - now;
+
+      if (difference <= 0) {
+        clearInterval(timerInterval);
+        setTimeLeft('🚨 หมดเวลาโหวตแล้ว');
+        // ถ้าคนใช้งานเปิดหน้าเว็บค้างอยู่พอดี ให้เด้งไปหน้าปิดโหวตทันที
+        const hash = window.location.hash.replace('#', '');
+        if (hash !== RESULTS_SECRET) setPage('expired');
+      } else {
+        const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+        const hours = Math.floor(
+          (difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
+        );
+        const minutes = Math.floor(
+          (difference % (1000 * 60 * 60)) / (1000 * 60)
+        );
+        const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+
+        let timeString = '';
+        if (days > 0) timeString += `${days} วัน `;
+        timeString += `${hours} ชั่วโมง ${minutes} นาที ${seconds} วินาที`;
+        setTimeLeft(timeString);
+      }
+    }, 1000);
 
     // โหลดคะแนนครั้งแรก
     const votesRef = ref(db, 'votes');
@@ -98,7 +128,7 @@ export default function VoteApp() {
         handleHashChange();
       });
 
-    // ดักฟังคะแนนแบบ Real-time (ถ้าอยู่หน้าผลลัพธ์ คะแนนจะอัปเดตอัตโนมัติ)
+    // ดักฟังคะแนนแบบ Real-time
     const unsubscribe = onValue(votesRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
@@ -109,21 +139,27 @@ export default function VoteApp() {
     window.addEventListener('hashchange', handleHashChange);
     return () => {
       window.removeEventListener('hashchange', handleHashChange);
+      clearInterval(timerInterval);
       unsubscribe();
     };
   }, []);
 
   const handleVote = async (id) => {
+    // ดักจับอีกชั้นนึง ตอนกดปุ่มโหวต ถ้าหมดเวลาแล้วจะไม่ยอมให้ส่งข้อมูลขึ้น Firebase
+    if (new Date().getTime() >= DEADLINE_TIME) {
+      alert('ไม่สามารถโหวตได้ เนื่องจากหมดเวลาลงคะแนนแล้วครับ');
+      setPage('expired');
+      return;
+    }
+
     if (submitting) return;
     setSubmitting(id);
 
     const choiceRef = ref(db, `votes/${id}`);
     try {
-      // ใช้ Transaction เพื่อป้องกันปัญหาคนกดพร้อมกันแล้วคะแนนไม่ขึ้น
       await runTransaction(choiceRef, (currentValue) => {
         return (currentValue || 0) + 1;
       });
-
       localStorage.setItem(LOCAL_VOTE_KEY, id);
       setVotedFor(id);
       setPage('thanks');
@@ -135,7 +171,13 @@ export default function VoteApp() {
 
   if (page === 'loading') return <LoadingScreen />;
   if (page === 'vote')
-    return <VotePage onVote={handleVote} submitting={submitting} />;
+    return (
+      <VotePage
+        onVote={handleVote}
+        submitting={submitting}
+        timeLeft={timeLeft}
+      />
+    );
   if (page === 'thanks')
     return (
       <ThanksPage
@@ -144,6 +186,7 @@ export default function VoteApp() {
       />
     );
   if (page === 'results') return <ResultsPage counts={counts} />;
+  if (page === 'expired') return <ExpiredPage counts={counts} />; // หน้าปิดโหวตตัวใหม่
   return null;
 }
 
@@ -157,11 +200,47 @@ function LoadingScreen() {
 }
 
 // ── Vote Page ─────────────────────────────────
-function VotePage({ onVote, submitting }) {
+// ── Vote Page (เวอร์ชันแสดงกล่องนับถอยหลัง) ───────────────────────
+function VotePage({ onVote, submitting, timeLeft }) {
   return (
     <div style={S.page}>
       <h1 style={S.heading}>{VOTE_HEADING}</h1>
       <p style={S.sub}>ดูรูปและคลิปสั้นๆ แล้วกดปุ่มโหวตด้านล่างได้เลยครับ</p>
+
+      {/* กล่องแสดงเวลานับถอยหลัง */}
+      <div
+        style={{
+          background: '#FFFBEB',
+          border: '1px solid #FDE68A',
+          borderRadius: 16,
+          padding: '12px 20px',
+          marginBottom: 24,
+          textAlign: 'center',
+        }}
+      >
+        <p
+          style={{
+            margin: 0,
+            fontSize: 14,
+            color: '#92400E',
+            fontWeight: 'bold',
+          }}
+        >
+          ⏳ เวลาที่เหลือในการโหวต
+        </p>
+        <p
+          style={{
+            margin: '4px 0 0',
+            fontSize: 18,
+            color: '#B45309',
+            fontWeight: 700,
+            letterSpacing: 0.5,
+          }}
+        >
+          {timeLeft || 'กำลังคำนวณ...'}
+        </p>
+      </div>
+
       <div style={S.grid}>
         {CHOICES.map((c) => (
           <ChoiceCard
@@ -172,6 +251,62 @@ function VotePage({ onVote, submitting }) {
             disabled={!!submitting}
           />
         ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Expired Page (หน้าตาปิดโหวตเมื่อถึงเวลาที่ตั้งไว้) ─────────────────────
+function ExpiredPage({ counts }) {
+  const total = counts.A + counts.B;
+  return (
+    <div style={S.center}>
+      <div
+        style={{
+          borderRadius: 24,
+          border: '3px solid #EF4444',
+          background: '#FEF2F2',
+          padding: '40px 24px',
+          textAlign: 'center',
+          maxWidth: 450,
+          width: '100%',
+        }}
+      >
+        <div style={{ fontSize: 64, marginBottom: 12 }}>🔒</div>
+        <h2 style={{ ...S.heading, color: '#DC2626', margin: '0 0 12px' }}>
+          ปิดระบบลงคะแนนแล้ว
+        </h2>
+        <p
+          style={{
+            fontSize: 16,
+            color: '#7F1D1D',
+            margin: '0 0 8px',
+            fontWeight: 'bold',
+          }}
+        >
+          สิ้นสุดระยะเวลาการโหวต:
+        </p>
+        <p
+          style={{
+            fontSize: 15,
+            color: '#991B1B',
+            margin: '0 0 24px',
+            background: '#fff',
+            padding: '8px 12px',
+            borderRadius: 8,
+            display: 'inline-block',
+            border: '1px solid #FCA5A5',
+          }}
+        >
+          📅 วันศุกร์ที่ 29 พ.ค. 2569 เวลา 18:00 น.
+        </p>
+        <p style={{ fontSize: 16, color: '#4B5563', margin: 0 }}>
+          จำนวนผู้ร่วมลงคะแนนทั้งหมดสรุปที่:{' '}
+          <strong>{total.toLocaleString()}</strong> คน
+        </p>
+        <p style={{ fontSize: 13, color: '#9CA3AF', marginTop: 8 }}>
+          ขอบคุณทุกท่านที่ร่วมแสดงความคิดเห็น
+        </p>
       </div>
     </div>
   );
